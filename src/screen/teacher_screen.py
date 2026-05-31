@@ -93,12 +93,14 @@ def teacher_tab_take_attendance():
     
     subject_options = {f"{s['name']} - {s['subject_code']}": s['subject_id'] for s in subjects}
     
+    # Step 1: Teacher selects subject first
     col1, col2 = st.columns([3,1], vertical_alignment='bottom')
     
     with col1:
         selected_subject_label = st.selectbox('Select Subject', options=list(subject_options.keys()))
     
     with col2:
+        # Step 2: Teacher clicks Add Photos button
         if st.button('Add Photos', type='primary', icon=':material/photo_prints:', width='stretch'):
             add_photos_dialog()
     
@@ -106,6 +108,7 @@ def teacher_tab_take_attendance():
     
     st.divider()
     
+    # Display uploaded photos if any
     if st.session_state.attendance_images:
         st.header('Added Photos')
         gallery_cols = st.columns(4)
@@ -113,113 +116,101 @@ def teacher_tab_take_attendance():
         for idx, img in enumerate(st.session_state.attendance_images):
             with gallery_cols[idx % 4]:
                 st.image(img, width='stretch', caption=f'Photo {idx+1}')
-        
-        has_photos = bool(st.session_state.attendance_images)
-        c1, c2, c3 = st.columns(3)
-        
-        with c1:
-            if st.button('Clear all photos', width='stretch', type='tertiary', icon=':material/delete:', disabled=not has_photos):
-                st.session_state.attendance_images = []
-                st.rerun()
-        
-        with c2:
-            if st.button('Run Face Analysis', width='stretch', type='secondary', icon=':material/analytics:', disabled=not has_photos):
-                with st.spinner('Deep scanning classroom photos...'):
-                    all_detected_ids = {}
+    
+    has_photos = bool(st.session_state.attendance_images)
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
+        if st.button('Clear all photos', width='stretch', type='tertiary', icon=':material/delete:', disabled=not has_photos):
+            st.session_state.attendance_images = []
+            st.rerun()
+    
+    with c2:
+        # Step 3: Teacher clicks Run Face Analysis button
+        if st.button('Run Face Analysis', width='stretch', type='secondary', icon=':material/analytics:', disabled=not has_photos):
+            with st.spinner('Deep scanning classroom photos...'):
+                all_detected_ids = {}
+                
+                # Step 4: Process each uploaded photo
+                for idx, img in enumerate(st.session_state.attendance_images):
+                    img_np = np.array(img.convert('RGB'))
+                    detected, _, _ = predict_attendance(img_np)
                     
-                    for idx, img in enumerate(st.session_state.attendance_images):
-                        img_np = np.array(img.convert('RGB'))
-                        detected, _, _ = predict_attendance(img_np)
-                        
-                        if detected:
-                            for sid in detected.keys():
-                                student_id = int(sid)
-                                all_detected_ids.setdefault(student_id, []).append(f"Photo {idx+1}")
+                    if detected:
+                        for sid in detected.keys():
+                            student_id = int(sid)
+                            all_detected_ids.setdefault(student_id, []).append(f"Photo {idx+1}")
+                
+                # Step 5: Fetch enrolled students from database
+                enrolled_res = supabase.table('subject_students').select("*, students(*)").eq('subject_id', selected_subject_id).execute()
+                enrolled_students = enrolled_res.data
+                
+                if not enrolled_students:
+                    st.warning('No students enrolled in this course')
+                else:
+                    # Step 6 & 7: Prepare results
+                    results, attendance_to_log = [], []
+                    current_timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
                     
-                    enrolled_res = supabase.table('subject_students').select("*, students(*)").eq('subject_id', selected_subject_id).execute()
-                    enrolled_students = enrolled_res.data
+                    for node in enrolled_students:
+                        student = node['students']
+                        sources = all_detected_ids.get(int(student['student_id']), [])
+                        is_present = len(sources) > 0
+                        
+                        results.append({
+                            "Name": student['name'],
+                            "ID": student['student_id'],
+                            "Source": ", ".join(sources) if is_present else "-",
+                            "Status": "✅ Present" if is_present else "❌ Absent"
+                        })
+                        
+                        attendance_to_log.append({
+                            'student_id': student['student_id'],
+                            'subject_id': selected_subject_id,
+                            'timestamp': current_timestamp,
+                            'is_present': bool(is_present)
+                        })
                     
-                    if not enrolled_students:
-                        st.warning('No students enrolled in this course')
-                    else:
-                        results, attendance_to_log = [], []
-                        current_timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-                        
-                        for node in enrolled_students:
-                            student = node['students']
-                            sources = all_detected_ids.get(int(student['student_id']), [])
-                            is_present = len(sources) > 0
-                            
-                            results.append({
-                                "Name": student['name'],
-                                "ID": student['student_id'],
-                                "Source": ", ".join(sources) if is_present else "-",
-                                "Status": "✅ Present" if is_present else "❌ Absent"
-                            })
-                            
-                            attendance_to_log.append({
-                                'student_id': student['student_id'],
-                                'subject_id': selected_subject_id,
-                                'timestamp': current_timestamp,
-                                'is_present': bool(is_present)
-                            })
-                        
-                        attendance_result_dialog(pd.DataFrame(results), attendance_to_log)
-        
-        with c3:
-            if st.button('Use Voice Attendance', type='primary', width='stretch', icon=':material/mic:'):
-                voice_attendance_dialog(selected_subject_id)
+                    # Step 8 & 9: Show dialog and save
+                    attendance_result_dialog(pd.DataFrame(results), attendance_to_log)
+    
+    with c3:
+        if st.button('Use Voice Attendance', type='primary', width='stretch', icon=':material/mic:'):
+            voice_attendance_dialog(selected_subject_id)
 
 
 def teacher_tab_manage_subjects():
     teacher_id = st.session_state.teacher_data['teacher_id']
-    
     col1, col2 = st.columns(2)
     with col1:
-        st.header('Manage Subjects')
+        st.header('Manage Subjects', width='stretch')
     
     with col2:
         if st.button('Create New Subject', width='stretch'):
             create_subject_dialog(teacher_id)
     
-    # LIST all SUBJECTS in GRID VIEW
+    # LIST all SUBJECTS
     subjects = get_teacher_subjects(teacher_id)
-    
     if subjects:
-        st.subheader(f"Your Subjects ({len(subjects)})")
-        
-        # Create grid with 2 columns
-        cols = st.columns(2)
-        
-        for i, sub in enumerate(subjects):
-            # Create a container for each subject card
-            with cols[i % 2]:
-                # Subject card HTML with no bottom margin
-                st.markdown(
-                    f"""
-                    <div style="background: white; border-left: 8px solid #EB459E; padding: 25px; border-radius: 20px; border: 1px solid #ddd; margin-bottom: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <h3 style="margin: 0; color: #1e293b; font-size: 1.5rem;">{sub['name']}</h3>
-                        <p style="color: #64748b; margin: 10px 0;">
-                            Code: <span style="background: #E0E3FF; color: #5865F2; padding: 2px 8px; border-radius: 5px;">{sub['subject_code']}</span> 
-                            | Section: {sub['section']}
-                        </p>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 5px;">
-                            <div style="background: #EB459E10; padding: 5px 12px; border-radius: 12px; font-size: 0.9rem;">🫂 <b>{sub.get('total_students', 0)}</b> Students</div>
-                            <div style="background: #EB459E10; padding: 5px 12px; border-radius: 12px; font-size: 0.9rem;">🕰️ <b>{sub.get('total_classes', 0)}</b> Classes</div>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                
-                # Share button directly below with no extra spacing
-                if st.button(f"Share Code: {sub['name']}", key=f"share_{sub['subject_code']}", icon=":material/share:", use_container_width=True):
+        for sub in subjects:
+            stats = [
+                ("🫂", "Students", sub['total_students']),
+                ("🕰️", "Classes", sub['total_classes']),
+            ]
+            def share_btn():
+                if st.button(f"Share Code: {sub['name']}", key=f"share_{sub['subject_code']}", icon=":material/share:"):
                     share_subject_dialog(sub['name'], sub['subject_code'])
-                
-                # Small space between cards
-                st.markdown("<br>", unsafe_allow_html=True)
+                st.space()
+            
+            subject_card(
+                name=sub['name'],
+                code=sub['subject_code'],
+                section=sub['section'],
+                stats=stats,
+                footer_callback=share_btn
+            )
     else:
-        st.info("📚 NO SUBJECTS FOUND. CREATE ONE ABOVE")
+        st.info("NO SUBJECTS FOUND. CREATE ONE ABOVE")
 
 
 def teacher_tab_attendance_records():
@@ -230,7 +221,6 @@ def teacher_tab_attendance_records():
     records = get_attendance_for_teacher(teacher_id)
     
     if not records:
-        st.info("No attendance records found yet.")
         return
     
     data = []
@@ -239,7 +229,7 @@ def teacher_tab_attendance_records():
         ts = r.get('timestamp')
         data.append({
             "ts_group": ts.split(".")[0] if ts else None,
-            "Time": datetime.fromisoformat(ts).strftime("%Y-%m-%d %I:%M %p") if ts else "N/A",
+            "Time": datetime.fromisoformat(ts).strftime("%Y-%m-%d %I:%M %p") if ts else "N'A",
             "Subject": r['subjects']['name'],
             "Subject Code": r['subjects']['subject_code'],
             "is_present": bool(r.get('is_present', False))
@@ -256,7 +246,7 @@ def teacher_tab_attendance_records():
     )
     
     summary['Attendance Stats'] = (
-        "✅ " + summary['Present_Count'].astype(str) + " / "
+        "✅ " + summary['Present_Count'].astype(str) + " /"
         + summary['Total_Count'].astype(str) + ' Students'
     )
     
