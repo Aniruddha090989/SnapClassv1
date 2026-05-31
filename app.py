@@ -20,7 +20,7 @@ def main():
     page_icon="📸",
     layout="centered",
     initial_sidebar_state="collapsed"
-
+    )
 
     
 
