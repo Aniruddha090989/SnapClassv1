@@ -7,6 +7,46 @@ import time
 
 @st.dialog("Capture or upload photos")
 def add_photos_dialog():
+    # Make all text white in the dialog
+    st.markdown(
+        """
+        <style>
+        /* Make dialog background dark */
+        div[role="dialog"] {
+            background-color: #1e1e1e !important;
+        }
+        
+        /* Make ALL text inside dialog white */
+        div[role="dialog"],
+        div[role="dialog"] * {
+            color: white !important;
+        }
+        
+        /* File uploader dropzone background */
+        section[data-testid="stFileUploaderDropzone"] {
+            background-color: #2d2d2d !important;
+        }
+        
+        /* Keep button colors as original */
+        div[role="dialog"] button[kind="primary"] {
+            background-color: #5865F2 !important;
+            color: white !important;
+        }
+        
+        div[role="dialog"] button[kind="tertiary"] {
+            background-color: #EB459E !important;
+            color: white !important;
+        }
+        
+        /* Make dropdown arrows white */
+        div[role="dialog"] svg {
+            fill: white !important;
+            color: white !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.write('Add classroom photos to scan for attendance')
 
@@ -20,8 +60,6 @@ def add_photos_dialog():
         if st.button('Camera', type=type_camera, width='stretch'):
             st.session_state.photo_tab = 'camera'
 
-
-
     with t2:
         type_upload = "primary" if st.session_state.photo_tab == 'upload' else 'tertiary'
         if st.button('Upload photos', type=type_upload, width='stretch'):
@@ -34,20 +72,12 @@ def add_photos_dialog():
             st.toast('Photo Captured')
             st.rerun()
 
-
     if st.session_state.photo_tab == 'upload':
-        uploaded_files = st.file_uploader( 'choose image files', type=['jpg', 'png', 'jpeg' ], accept_multiple_files=True, key='dialog_upload')
+        uploaded_files = st.file_uploader('choose image files', type=['jpg', 'png', 'jpeg'], accept_multiple_files=True, key='dialog_upload')
         st.divider()
         if st.button('Done', type='primary', width='stretch'):
-            #time.sleep(1)
             if uploaded_files:
                 for f in uploaded_files:
                     st.session_state.attendance_images.append(Image.open(f))
-            
             st.toast('Photo Uploaded Successfully')
             st.rerun()
-
-        
-            
-
-            
