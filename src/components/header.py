@@ -12,15 +12,16 @@ def header_home():
         font-family: 'ADLaM Display', cursive !important;
         text-align: center;
         color: #E0E3FF;
-        font-size: 3.5rem;
+        font-size: 2.5rem;
         margin: 0;
         line-height: 1.2;
+        white-space: nowrap;
     }}
     </style>
     
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; margin-bottom:30px; margin-top:30px">
         <img src='{logo_url}' style='height:100px;' />
-        <h2 style='text-align:left; color:#5865F2'>ATTENDIFY</h2>
+        <h1 class='snapclass-title'>ATTENDIFY</h1>
     </div>
     """, unsafe_allow_html=True)
 
@@ -36,13 +37,14 @@ def header_dashboard():
         font-family: 'ADLaM Display', cursive !important;
         text-align: left;
         color: #5865F2;
-        font-size: 2rem;
+        font-size: 1.8rem;
         margin: 0;
+        white-space: nowrap;
     }}
     </style>
     
     <div style="display:flex; align-items:center; justify-content:center; gap:10px">
-        <img src='{logo_url}' style='height:85px;' />
-        <h2 style='text-align:left; color:#5865F2'>ATTENDIFY</h2>
+        <img src='{logo_url}' style='height:65px;' />
+        <h2 class='snapclass-dashboard-title'>ATTENDIFY</h2>
     </div>
     """, unsafe_allow_html=True)
