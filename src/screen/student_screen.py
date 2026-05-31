@@ -8,14 +8,14 @@ from src.pipelines.face_pipeline import predict_attendance, get_face_embeddings,
 from src.pipelines.voice_pipeline import get_voice_embedding
 from src.database.db import (
     get_all_students, 
-    create_student_with_auth, 
+    create_student, 
     get_student_subjects, 
     get_student_attendance,
     unenroll_student_to_subject, 
-    check_student_exists, 
-    student_login_password,
+    check_student_username_exists,
+    student_login_username_password,
     get_student_by_voice,
-    check_face_exists
+    create_student_complete
 )
 import time
 from src.components.dialog_enroll import enroll_dialog
@@ -42,7 +42,7 @@ def student_dashboard():
     with c1:
         st.header('Your Enrolled Subjects')
     with c2:
-        if st.button('Enroll in Subject', type='primary', width='stretch'):
+        if st.button('Enroll in Subject', type='primary', width='stretch', key='enroll_btn'):
             enroll_dialog()
     
     st.divider()
@@ -191,13 +191,13 @@ def student_login_username_password():
     
     if st.button("🔐 Sign In", type='primary', width='stretch', key="login_btn"):
         if username and password:
-            student = student_login_password(username, password)
+            student = student_login_username_password(username, password)
             if student:
                 st.session_state.is_logged_in = True
                 st.session_state.user_role = 'student'
                 st.session_state.student_data = student
                 st.session_state.student_login_method = 'password'
-                st.toast(f'Welcome back {student["name"]}!')
+                st.success(f'Welcome back {student["name"]}!')
                 time.sleep(1)
                 st.rerun()
             else:
@@ -233,7 +233,7 @@ def student_login_face():
                         st.session_state.user_role = 'student'
                         st.session_state.student_data = student
                         st.session_state.student_login_method = 'face'
-                        st.toast(f'Welcome back {student["name"]}!')
+                        st.success(f'Welcome back {student["name"]}!')
                         time.sleep(1)
                         st.rerun()
                     else:
@@ -261,7 +261,7 @@ def student_login_voice():
                     st.session_state.user_role = 'student'
                     st.session_state.student_data = student
                     st.session_state.student_login_method = 'voice'
-                    st.toast(f'Welcome back {student["name"]}!')
+                    st.success(f'Welcome back {student["name"]}!')
                     time.sleep(1)
                     st.rerun()
                 else:
@@ -278,10 +278,10 @@ def student_register():
         col1, col2 = st.columns(2)
         
         with col1:
-            name = st.text_input("Full Name *", placeholder="Enter your full name")
-            username = st.text_input("Username *", placeholder="Choose a username")
-            password = st.text_input("Password *", type="password", placeholder="Create a password")
-            confirm_password = st.text_input("Confirm Password *", type="password", placeholder="Confirm your password")
+            name = st.text_input("Full Name *", placeholder="Enter your full name", key="reg_name")
+            username = st.text_input("Username *", placeholder="Choose a username", key="reg_username")
+            password = st.text_input("Password *", type="password", placeholder="Create a password", key="reg_password")
+            confirm_password = st.text_input("Confirm Password *", type="password", placeholder="Confirm your password", key="reg_confirm")
         
         with col2:
             st.write("**Face Enrollment (Required)**")
@@ -311,7 +311,8 @@ def student_register():
                     st.error(error)
             else:
                 with st.spinner("Checking existing records..."):
-                    if check_student_exists(username):
+                    # Check if username already exists
+                    if check_student_username_exists(username):
                         st.error("❌ Username already registered! Please choose a different username.")
                     else:
                         img = np.array(Image.open(face_photo))
@@ -322,31 +323,46 @@ def student_register():
                         else:
                             face_embedding = face_encodings[0].tolist()
                             
-                            existing_face = check_face_exists(face_embedding)
-                            if existing_face:
-                                st.error("❌ Face already registered! Please use existing account or try a different face.")
+                            # Use predict_attendance to check if face already exists
+                            detected, all_ids, num_faces = predict_attendance(img)
+                            
+                            if num_faces == 0:
+                                st.warning('Face not found! Please try again.')
+                            elif num_faces > 1:
+                                st.warning('Multiple faces found! Please ensure only your face is visible.')
                             else:
-                                with st.spinner("Creating your account..."):
-                                    voice_embedding = None
-                                    if voice_audio:
-                                        voice_embedding = get_voice_embedding(voice_audio.read())
+                                if detected:
+                                    # Face already registered
+                                    student_id = list(detected.keys())[0]
+                                    all_students = get_all_students()
+                                    existing_student = next((s for s in all_students if s['student_id'] == student_id), None)
                                     
-                                    response = create_student_with_auth(
-                                        name=name,
-                                        username=username,
-                                        password=password,
-                                        face_embedding=face_embedding,
-                                        voice_embedding=voice_embedding
-                                    )
-                                    
-                                    if response:
-                                        train_classifier()
-                                        st.success("Account created successfully! Please login.")
-                                        time.sleep(2)
-                                        st.session_state.student_login_option = 'face'
-                                        st.rerun()
-                                    else:
-                                        st.error("Failed to create account. Please try again.")
+                                    if existing_student:
+                                        
+                                        st.error("❌ Face already registered! Please use existing account.")
+                                else:
+                                    # Face is new, proceed with registration
+                                    with st.spinner("Creating your account..."):
+                                        voice_embedding = None
+                                        if voice_audio:
+                                            voice_embedding = get_voice_embedding(voice_audio.read())
+                                        
+                                        response = create_student_complete(
+                                            username=username,
+                                            password=password,
+                                            name=name,
+                                            face_embedding=face_embedding,
+                                            voice_embedding=voice_embedding
+                                        )
+                                        
+                                        if response:
+                                            train_classifier()
+                                            st.success("Account created successfully! Please login.")
+                                            time.sleep(2)
+                                            st.session_state.student_login_option = 'face'
+                                            st.rerun()
+                                        else:
+                                            st.error("Failed to create account. Please try again.")
 
 
 def student_screen():
@@ -372,6 +388,12 @@ def student_screen():
         st.session_state.student_login_option = 'face'
     
     st.header("Student Login", text_alignment='center')
+
+    
+
+
+    
+    
     
     col1, col2, col3, col4 = st.columns(4, gap='small')
     
@@ -383,7 +405,7 @@ def student_screen():
     
     with col2:
         btn_type = "primary" if st.session_state.student_login_option == 'password' else "tertiary"
-        if st.button('🔐 Sign In', type=btn_type, width='stretch', key='tab_password'):
+        if st.button('🔐 Password', type=btn_type, width='stretch', key='tab_password'):
             st.session_state.student_login_option = 'password'
             st.rerun()
     
@@ -395,7 +417,7 @@ def student_screen():
     
     with col4:
         btn_type = "primary" if st.session_state.student_login_option == 'register' else "secondary"
-        if st.button('📝 Register Now', type=btn_type, width='stretch', key='tab_register'):
+        if st.button('📝 Register', type=btn_type, width='stretch', key='tab_register'):
             st.session_state.student_login_option = 'register'
             st.rerun()
     
@@ -411,5 +433,3 @@ def student_screen():
         student_register()
     
     footer_dashboard()
-
-    
