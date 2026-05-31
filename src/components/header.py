@@ -20,7 +20,7 @@ def header_home():
     
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; margin-bottom:30px; margin-top:30px">
         <img src='{logo_url}' style='height:100px;' />
-        <h1 class='snapclass-title'>SNAP<br/>CLASS</h1>
+        <h2 style='text-align:left; color:#5865F2'>ATTENDIFY</h2>
     </div>
     """, unsafe_allow_html=True)
 
@@ -43,6 +43,6 @@ def header_dashboard():
     
     <div style="display:flex; align-items:center; justify-content:center; gap:10px">
         <img src='{logo_url}' style='height:85px;' />
-        <h2 class='snapclass-dashboard-title'>SNAP CLASS</h2>
+        <h2 style='text-align:left; color:#5865F2'>ATTENDIFY</h2>
     </div>
     """, unsafe_allow_html=True)
