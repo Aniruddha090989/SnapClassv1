@@ -19,7 +19,6 @@ from src.database.db import (
 )
 import time
 from src.components.dialog_enroll import enroll_dialog
-from src.components.subject_card import subject_card
 
 
 def student_dashboard():
@@ -52,39 +51,129 @@ def student_dashboard():
         subjects = get_student_subjects(student_id)
         logs = get_student_attendance(student_id)
     
+    # Create detailed attendance view
     stats_map = {}
+    detailed_attendance = []
     
     for log in logs:
         sid = log['subject_id']
+        subject_name = log['subjects']['name'] if log.get('subjects') else f"Subject {sid}"
+        
         if sid not in stats_map:
-            stats_map[sid] = {"total": 0, "attended": 0}
+            stats_map[sid] = {
+                "total": 0, 
+                "attended": 0,
+                "subject_name": subject_name,
+                "subject_code": log['subjects']['subject_code'] if log.get('subjects') else "N/A",
+                "attendance_records": []
+            }
+        
         stats_map[sid]['total'] += 1
         if log.get('is_present'):
             stats_map[sid]['attended'] += 1
+        
+        # Store detailed record
+        stats_map[sid]['attendance_records'].append({
+            "date": log['timestamp'][:10] if log.get('timestamp') else "Unknown",
+            "time": log['timestamp'][11:19] if log.get('timestamp') else "Unknown",
+            "status": "✅ Present" if log.get('is_present') else "❌ Absent"
+        })
     
+    # CSS to fix expander background
+    st.markdown(
+        """
+        <style>
+        /* Fix for Streamlit expander background */
+        .stExpander {
+            background-color: #f5f5f5 !important;
+            border-radius: 10px !important;
+        }
+        .stExpander details {
+            background-color: #f5f5f5 !important;
+        }
+        .stExpander summary {
+            background-color: #e0e0e0 !important;
+            color: #111111 !important;
+            border-radius: 10px !important;
+        }
+        .stExpander summary:hover {
+            background-color: #d0d0d0 !important;
+        }
+        div[data-testid="stExpander"] {
+            background-color: #f5f5f5 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    
+    # Display subjects in grid
     cols = st.columns(2)
+    
     for i, sub_node in enumerate(subjects):
         sub = sub_node['subjects']
         sid = sub['subject_id']
-        stats = stats_map.get(sid, {"total": 0, "attended": 0})
+        stats = stats_map.get(sid, {"total": 0, "attended": 0, "subject_name": sub['name'], "subject_code": sub['subject_code']})
+        
+        # Calculate attendance percentage
+        attendance_percentage = (stats['attended'] / stats['total'] * 100) if stats['total'] > 0 else 0
         
         def unenroll_button(sid=sid, sub_name=sub['name']):
-            if st.button("Unenroll from this course", type='tertiary', width='stretch', icon=':material/delete_forever:'):
+            if st.button("🚪 Unenroll", type='secondary', width='stretch', key=f"unenroll_{sid}"):
                 unenroll_student_to_subject(student_id, sid)
                 st.toast(f'Unenrolled from {sub_name} successfully!')
                 st.rerun()
         
         with cols[i % 2]:
-            subject_card(
-                name=sub['name'],
-                code=sub['subject_code'],
-                section=sub['section'],
-                stats=[
-                    ('📅', 'Total', stats['total']),
-                    ('✅', 'Attended', stats['attended']),
-                ],
-                footer_callback=unenroll_button
+            # Subject card with detailed stats
+            st.markdown(
+                f"""
+                <div style="background: white; border-left: 8px solid #EB459E; padding: 20px; border-radius: 15px; border: 1px solid #ddd; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 10px 0; color: #1e293b; font-size: 1.3rem;">📚 {sub['name']}</h3>
+                    <p style="color: #64748b; margin: 5px 0;">
+                        📖 Code: <span style="background: #E0E3FF; color: #5865F2; padding: 2px 8px; border-radius: 5px;">{sub['subject_code']}</span> 
+                        | 📍 Section: {sub['section']}
+                    </p>
+                    <div style="background: #f0f0f0; border-radius: 10px; padding: 12px; margin: 12px 0;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span>📊 Attendance Rate</span>
+                            <span><b>{attendance_percentage:.1f}%</b></span>
+                        </div>
+                        <div style="background: #ddd; border-radius: 10px; overflow: hidden; height: 10px;">
+                            <div style="background: #5865F2; width: {attendance_percentage}%; height: 10px;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                            <span>✅ Present: <b>{stats['attended']}</b></span>
+                            <span>❌ Absent: <b>{stats['total'] - stats['attended']}</b></span>
+                            <span>📅 Total: <b>{stats['total']}</b></span>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
+            
+            # Unenroll button
+            unenroll_button()
+            
+            # Expandable detailed attendance records
+            with st.expander("📋 View Detailed Attendance Records"):
+                if stats.get('attendance_records'):
+                    for record in stats['attendance_records']:
+                        st.markdown(
+                            f"""
+                            <div style="display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee; background: white; color: #111111;">
+                                <span>📅 {record['date']}</span>
+                                <span>⏰ {record['time']}</span>
+                                <span>{record['status']}</span>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info("No attendance records found for this subject.")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
     
     footer_dashboard()
 
@@ -92,13 +181,15 @@ def student_dashboard():
 def student_login_username_password():
     st.subheader("Login with Username & Password")
     
-    col1, col2 = st.columns(2)
-    with col1:
+    row1_col1, row1_col2 = st.columns(2)
+    
+    with row1_col1:
         username = st.text_input("Username", placeholder="Enter your username", key="login_username")
-    with col2:
+    
+    with row1_col2:
         password = st.text_input("Password", placeholder="Enter your password", type="password", key="login_password")
     
-    if st.button("Login", type='primary', width='stretch', key="login_btn"):
+    if st.button("🔐 Sign In", type='primary', width='stretch', key="login_btn"):
         if username and password:
             student = student_login_password(username, password)
             if student:
@@ -119,7 +210,6 @@ def student_login_face():
     st.subheader("Login with Face ID")
     st.write("Position your face at the center of the camera")
     
-    # Camera only renders when this function is called
     photo_source = st.camera_input("Take a photo for face recognition", key="face_login_cam")
     
     if photo_source:
@@ -203,7 +293,6 @@ def student_register():
         submitted = st.form_submit_button("Register Now", type='primary', use_container_width=True)
         
         if submitted:
-            # Validation
             errors = []
             
             if not name:
@@ -222,11 +311,9 @@ def student_register():
                     st.error(error)
             else:
                 with st.spinner("Checking existing records..."):
-                    # Check if username already exists
                     if check_student_exists(username):
                         st.error("❌ Username already registered! Please choose a different username.")
                     else:
-                        # Process face embedding
                         img = np.array(Image.open(face_photo))
                         face_encodings = get_face_embeddings(img)
                         
@@ -235,18 +322,15 @@ def student_register():
                         else:
                             face_embedding = face_encodings[0].tolist()
                             
-                            # Check if face already exists in database
                             existing_face = check_face_exists(face_embedding)
                             if existing_face:
-                                st.error(f"❌ Face already registered! Please use existing account.")
+                                st.error("❌ Face already registered! Please use existing account or try a different face.")
                             else:
                                 with st.spinner("Creating your account..."):
-                                    # Process voice embedding (optional)
                                     voice_embedding = None
                                     if voice_audio:
                                         voice_embedding = get_voice_embedding(voice_audio.read())
                                     
-                                    # Create student
                                     response = create_student_with_auth(
                                         name=name,
                                         username=username,
@@ -259,7 +343,7 @@ def student_register():
                                         train_classifier()
                                         st.success("Account created successfully! Please login.")
                                         time.sleep(2)
-                                        st.session_state.student_login_option = 'password'
+                                        st.session_state.student_login_option = 'face'
                                         st.rerun()
                                     else:
                                         st.error("Failed to create account. Please try again.")
@@ -269,12 +353,10 @@ def student_screen():
     style_base_layout()
     style_background_dashboard()
     
-    # If already logged in, show dashboard
     if "student_data" in st.session_state:
         student_dashboard()
         return
     
-    # Header and back button
     c1, c2 = st.columns(2, vertical_alignment='center', gap='xxlarge')
     with c1:
         header_dashboard()
@@ -286,25 +368,23 @@ def student_screen():
     st.space()
     st.space()
     
-    # Initialize session state for student login option if not exists
     if 'student_login_option' not in st.session_state:
-        st.session_state.student_login_option = 'password'
+        st.session_state.student_login_option = 'face'
     
     st.header("Student Login", text_alignment='center')
     
-    # Create toggle buttons - 4 columns with compact text
     col1, col2, col3, col4 = st.columns(4, gap='small')
     
     with col1:
-        btn_type = "primary" if st.session_state.student_login_option == 'password' else "tertiary"
-        if st.button('🔐 Username', type=btn_type, width='stretch', key='tab_password'):
-            st.session_state.student_login_option = 'password'
-            st.rerun()
-    
-    with col2:
         btn_type = "primary" if st.session_state.student_login_option == 'face' else "tertiary"
         if st.button('👤 Face ID', type=btn_type, width='stretch', key='tab_face'):
             st.session_state.student_login_option = 'face'
+            st.rerun()
+    
+    with col2:
+        btn_type = "primary" if st.session_state.student_login_option == 'password' else "tertiary"
+        if st.button('🔐 Sign In', type=btn_type, width='stretch', key='tab_password'):
+            st.session_state.student_login_option = 'password'
             st.rerun()
     
     with col3:
@@ -314,18 +394,17 @@ def student_screen():
             st.rerun()
     
     with col4:
-        btn_type = "secondary" if st.session_state.student_login_option == 'register' else "secondary"
-        if st.button('📝 Not Registered Yet!', type=btn_type, width='stretch', key='tab_register'):
+        btn_type = "primary" if st.session_state.student_login_option == 'register' else "secondary"
+        if st.button('📝 Register Now', type=btn_type, width='stretch', key='tab_register'):
             st.session_state.student_login_option = 'register'
             st.rerun()
     
     st.divider()
     
-    # Show content based on selected option
-    if st.session_state.student_login_option == 'password':
-        student_login_username_password()
-    elif st.session_state.student_login_option == 'face':
+    if st.session_state.student_login_option == 'face':
         student_login_face()
+    elif st.session_state.student_login_option == 'password':
+        student_login_username_password()
     elif st.session_state.student_login_option == 'voice':
         student_login_voice()
     elif st.session_state.student_login_option == 'register':

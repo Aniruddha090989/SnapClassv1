@@ -7,27 +7,47 @@ import time
 
 @st.dialog("Capture or upload photos")
 def add_photos_dialog():
-    # Make all text white in the dialog
+    # Style the dialog and make all elements visible
     st.markdown(
         """
         <style>
-        /* Make dialog background dark */
+        /* Dialog background */
         div[role="dialog"] {
-            background-color: #1e1e1e !important;
+            background-color: #f5f5dc !important;
         }
         
-        /* Make ALL text inside dialog white */
-        div[role="dialog"],
-        div[role="dialog"] * {
-            color: white !important;
-        }
-        
-        /* File uploader dropzone background */
+        /* Make the entire file uploader dropzone off-white */
         section[data-testid="stFileUploaderDropzone"] {
-            background-color: #2d2d2d !important;
+            background-color: #f5f5dc !important;
         }
         
-        /* Keep button colors as original */
+        /* Make all text inside file uploader black */
+        section[data-testid="stFileUploaderDropzone"] * {
+            color: black !important;
+        }
+        
+        /* Make dropdown arrow icons visible */
+        div[role="dialog"] svg.icon,
+        div[role="dialog"] svg[data-testid="stIcon"],
+        div[role="dialog"] .stSelectbox svg {
+            fill: black !important;
+            color: black !important;
+            stroke: black !important;
+        }
+        
+        /* Make any arrow/chevron icons black */
+        div[role="dialog"] svg {
+            fill: black !important;
+            color: black !important;
+        }
+        
+        /* Keep upload button with light background */
+        section[data-testid="stFileUploaderDropzone"] button {
+            background-color: #e0e0e0 !important;
+            color: black !important;
+        }
+        
+        /* Keep Camera/Upload/Done button colors as before */
         div[role="dialog"] button[kind="primary"] {
             background-color: #5865F2 !important;
             color: white !important;
@@ -38,10 +58,13 @@ def add_photos_dialog():
             color: white !important;
         }
         
-        /* Make dropdown arrows white */
-        div[role="dialog"] svg {
-            fill: white !important;
-            color: white !important;
+        /* Make select box trigger visible */
+        div[role="dialog"] .stSelectbox [data-baseweb="select"] {
+            background-color: white !important;
+        }
+        
+        div[role="dialog"] .stSelectbox [data-baseweb="select"] svg {
+            fill: black !important;
         }
         </style>
         """,

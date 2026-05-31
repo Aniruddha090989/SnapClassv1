@@ -6,16 +6,21 @@ def style_background_home():
         """
         <style>
         /* Force home page background */
+        body {
+            background-color: #B6CEB4 !important;
+        }
         .stApp {
             background-color: #B6CEB4 !important;
             background: #B6CEB4 !important;
         }
-        
-        /* Override any other backgrounds */
         .stApp > header {
             background-color: #B6CEB4 !important;
         }
+        .main > div {
+            background-color: #B6CEB4 !important;
+        }
         
+        /* Column styling */
         .stApp div[data-testid="stColumn"] {
             background-color: #E0E3FF !important;
             padding: 2.5rem !important;
@@ -139,6 +144,70 @@ def style_background_dashboard():
         }
         
         .stToast svg {
+            fill: #111111 !important;
+            color: #111111 !important;
+        }
+        
+        /* ========== DIALOG AND POPUP STYLES ========== */
+        /* All dialogs - white background, black text */
+        div[role="dialog"] {
+            background-color: #FFFFFF !important;
+            color: #111111 !important;
+        }
+        
+        div[role="dialog"] * {
+            color: #111111 !important;
+        }
+        
+        /* Dialog buttons */
+        div[role="dialog"] button {
+            background-color: #5865F2 !important;
+            color: white !important;
+        }
+        
+        div[role="dialog"] button[kind="secondary"] {
+            background-color: #EB459E !important;
+            color: white !important;
+        }
+        
+        div[role="dialog"] button[kind="tertiary"] {
+            background-color: #F0F0F0 !important;
+            color: #111111 !important;
+            border: 1px solid #5865F2 !important;
+        }
+        
+        /* Dialog input fields */
+        div[role="dialog"] input,
+        div[role="dialog"] textarea,
+        div[role="dialog"] select {
+            background-color: #F5F5F5 !important;
+            color: #111111 !important;
+            border: 1px solid #5865F2 !important;
+        }
+        
+        /* Dialog file uploader */
+        div[role="dialog"] .stFileUploader div[data-testid="stFileUploaderDropzone"] {
+            background-color: #F5F5F5 !important;
+            border: 1px solid #5865F2 !important;
+        }
+        
+        div[role="dialog"] .stFileUploader label,
+        div[role="dialog"] .stFileUploader span {
+            color: #111111 !important;
+        }
+        
+        /* Dialog camera input */
+        div[role="dialog"] .stCameraInput label {
+            color: #111111 !important;
+        }
+        
+        /* Dialog divider */
+        div[role="dialog"] hr {
+            border-color: #5865F2 !important;
+        }
+        
+        /* Dialog SVG icons */
+        div[role="dialog"] svg {
             fill: #111111 !important;
             color: #111111 !important;
         }
