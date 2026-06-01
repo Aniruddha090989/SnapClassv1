@@ -178,32 +178,38 @@ def student_dashboard():
     footer_dashboard()
 
 
-def student_login_username_password():
-    st.subheader("Login with Username & Password")
+
+def login_username_password():
+    st.markdown('<h3 style="text-align: center; color: #5865F2; margin-bottom: 1rem;">Login with Username & Password</h3>', unsafe_allow_html=True)
     
-    row1_col1, row1_col2 = st.columns(2)
+    # Center the form using columns
+    col1, col2, col3 = st.columns([1, 2, 1])
     
-    with row1_col1:
+    with col2:
         username = st.text_input("Username", placeholder="Enter your username", key="login_username")
-    
-    with row1_col2:
         password = st.text_input("Password", placeholder="Enter your password", type="password", key="login_password")
-    
-    if st.button("🔐 Sign In", type='primary', width='stretch', key="login_btn"):
-        if username and password:
-            student = student_login_username_password(username, password)
-            if student:
-                st.session_state.is_logged_in = True
-                st.session_state.user_role = 'student'
-                st.session_state.student_data = student
-                st.session_state.student_login_method = 'password'
-                st.success(f'Welcome back {student["name"]}!')
-                time.sleep(1)
-                st.rerun()
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        if st.button("🔐 Sign In", type='primary', width='stretch', key="login_btn"):
+            if username and password:
+                student = student_login_username_password(username, password)
+                if student:
+                    st.session_state.is_logged_in = True
+                    st.session_state.user_role = 'student'
+                    st.session_state.student_data = student
+                    st.session_state.student_login_method = 'password'
+                    st.success(f'Welcome back {student["name"]}!')
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password!")
             else:
-                st.error("Invalid username or password!")
-        else:
-            st.warning("Please enter both username and password")
+                st.warning("Please enter both username and password")
+
+
+
+
 
 
 def student_login_face():
@@ -426,7 +432,7 @@ def student_screen():
     if st.session_state.student_login_option == 'face':
         student_login_face()
     elif st.session_state.student_login_option == 'password':
-        student_login_username_password()
+        login_username_password()
     elif st.session_state.student_login_option == 'voice':
         student_login_voice()
     elif st.session_state.student_login_option == 'register':
